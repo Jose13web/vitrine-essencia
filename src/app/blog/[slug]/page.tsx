@@ -1,93 +1,154 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
-import { formatDate } from "@/lib/utils";
+import ProductCard from "@/components/product/ProductCard";
 import Link from "next/link";
-import { Calendar, User, ArrowLeft, Tag } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import type { Metadata } from "next";
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
-  const { slug } = await params;
-  const article = await prisma.article.findUnique({ where: { slug } });
-  if (!article) return { title: "Artigo não encontrado" };
-  return {
-    title: article.title,
-    description: article.excerpt || article.content.substring(0, 160),
-  };
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Ofertas e Produtos",
+  description: "Veja todas as ofertas e produtos disponíveis na Vitrine Shopee.",
+};
+
+interface SearchParams {
+  q?: string;
+  categoria?: string;
+  ordenar?: string;
 }
 
-export default async function ArticleDetailPage({
-  params,
+export default async function ProductsPage({
+  searchParams,
 }: {
-  params: Promise<{ slug: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
-  const { slug } = await params;
+  const params = await searchParams;
+  const { q, categoria, ordenar } = params;
 
-  const article = await prisma.article.findUnique({ where: { slug } });
-  if (!article) notFound();
+  const where: Record<string, unknown> = { active: true };
 
-  const htmlContent = article.content
-    .replace(/^### (.*$)/gim, '<h3 class="text-xl font-bold mt-6 mb-3 text-gray-800">$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-bold mt-8 mb-4 text-gray-900">$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mt-8 mb-4 text-gray-900">$1</h1>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-    .replace(/^\- (.*$)/gim, '<li class="ml-4 list-disc text-gray-700">$1</li>')
-    .replace(/^\d+\. (.*$)/gim, '<li class="ml-4 list-decimal text-gray-700">$1</li>')
-    .replace(/\n\n/g, '<br/><br/>');
+  if (q) {
+    where.OR = [
+      { name: { contains: q } },
+      { description: { contains: q } },
+      { tags: { contains: q } },
+      { brand: { contains: q } },
+    ];
+  }
+
+  if (categoria) {
+    where.category = { slug: categoria };
+  }
+
+  let orderBy: Record<string, string> = { createdAt: "desc" };
+  if (ordenar === "preco-asc") orderBy = { price: "asc" };
+  else if (ordenar === "preco-desc") orderBy = { price: "desc" };
+  else if (ordenar === "avaliacao") orderBy = { rating: "desc" };
+  else if (ordenar === "desconto") orderBy = { originalPrice: "desc" };
+
+  const [products, categories] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      include: { category: true, coupons: true },
+      orderBy,
+    }),
+    prisma.category.findMany({
+      include: { _count: { select: { products: true } } },
+      orderBy: { order: "asc" },
+    }),
+  ]);
 
   return (
-    <article className="mx-auto max-w-3xl px-4 py-8">
-      <Link
-        href="/blog"
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-orange-600 mb-6"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Voltar ao Blog
-      </Link>
-
-      {article.imageUrl && (
-        <img
-          src={article.imageUrl}
-          alt={article.title}
-          className="w-full rounded-2xl object-cover"
-          style={{ maxHeight: 400 }}
-        />
-      )}
-
-      <h1 className="mt-6 text-3xl font-extrabold text-gray-900 md:text-4xl">
-        {article.title}
-      </h1>
-
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-gray-500">
-        {article.publishedAt && (
-          <span className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />
-            {formatDate(article.publishedAt)}
-          </span>
-        )}
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">
+          {q ? `Resultados para "${q}"` : "Todas as Ofertas"}
+        </h1>
+        <p className="mt-2 text-gray-600">
+          {products.length} {products.length === 1 ? "produto encontrado" : "produtos encontrados"}
+        </p>
       </div>
 
-      {article.tags && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {article.tags.split(",").map((tag) => (
-            <span
-              key={tag.trim()}
-              className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-orange-600"
-            >
-              <Tag className="h-3 w-3" />
-              {tag.trim()}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
+        <aside className="hidden lg:block">
+          <div className="sticky top-20 space-y-6">
+            <div>
+              <h3 className="mb-3 font-semibold text-gray-900">Categorias</h3>
+              <ul className="space-y-1">
+                <li>
+                  <Link
+                    href="/produtos"
+                    className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                      !categoria ? "bg-orange-50 font-medium text-orange-600" : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    Todas
+                  </Link>
+                </li>
+                {categories.map((cat) => (
+                  <li key={cat.id}>
+                    <Link
+                      href={`/produtos?categoria=${cat.slug}`}
+                      className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                        categoria === cat.slug
+                          ? "bg-orange-50 font-medium text-orange-600"
+                          : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {cat.name} ({cat._count.products})
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-      <div
-        className="prose prose-orange mt-8 max-w-none text-gray-700 leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: htmlContent }}
-      />
-    </article>
+            <div>
+              <h3 className="mb-3 font-semibold text-gray-900">Ordenar por</h3>
+              <ul className="space-y-1">
+                {[
+                  { value: "", label: "Mais recentes" },
+                  { value: "preco-asc", label: "Menor preço" },
+                  { value: "preco-desc", label: "Maior preço" },
+                  { value: "avaliacao", label: "Melhor avaliação" },
+                ].map((opt) => (
+                  <li key={opt.value}>
+                    <Link
+                      href={opt.value ? `/produtos?ordenar=${opt.value}` : "/produtos"}
+                      className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                        ordenar === opt.value
+                          ? "bg-orange-50 font-medium text-orange-600"
+                          : "text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {opt.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </aside>
+
+        <div>
+          {products.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-gray-300 p-12 text-center">
+              <SlidersHorizontal className="mx-auto h-12 w-12 text-gray-300" />
+              <h3 className="mt-4 text-lg font-semibold text-gray-600">
+                Nenhum produto encontrado
+              </h3>
+              <p className="mt-2 text-gray-500">
+                Tente buscar por outros termos ou ajuste os filtros.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} showCategory />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
