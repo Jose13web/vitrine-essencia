@@ -4,6 +4,8 @@ import { Calendar, ArrowRight } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Blog - Dicas, Ofertas e Tutoriais",
   description: "Blog da Vitrine Shopee com dicas, tutoriais e as melhores ofertas da semana.",
