@@ -4,6 +4,8 @@ import Link from "next/link";
 import { SlidersHorizontal } from "lucide-react";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Ofertas e Produtos",
   description: "Veja todas as ofertas e produtos disponíveis na Vitrine Shopee.",
