@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Tag, Copy, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Cupons de Desconto Shopee",
   description: "Acesse os melhores cupons de desconto da Shopee. Economize em suas compras!",
