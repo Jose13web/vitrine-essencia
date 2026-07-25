@@ -5,7 +5,7 @@ import ProductCard from "@/components/product/ProductCard";
 import Link from "next/link";
 import { Flame, TrendingUp, ArrowRight } from "lucide-react";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 async function getHomeData() {
   const [featuredProducts, categories, recentProducts, allProducts] =
